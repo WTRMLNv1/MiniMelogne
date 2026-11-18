@@ -9,6 +9,8 @@
 //! Followed by arithmetic-coded bitstream payload (or raw payload if FLAG_RAW).
 //! ```
 
+pub mod archive;
+
 use std::io::{self, Read, Write};
 
 pub const MAGIC: [u8; 4] = *b"MMEL";
