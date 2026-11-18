@@ -1,0 +1,16 @@
+[package]
+name = "minimelogne"
+version = "0.1.0"
+edition = "2021"
+authors = ["WTRMLN <ansh_tiwari2808@outlook.com>"]
+description = "A tiny, laptop-friendly context-mixing compressor in Rust with a statistical analysis frontend"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# Zero external dependencies for maximum portability, bit-exact determinism, and zero-download offline builds.
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
