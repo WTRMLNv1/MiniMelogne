@@ -60,6 +60,62 @@ impl BitCounter {
     }
 }
 
+use super::state_table::{STATE_AGE, STATE_INITIAL_COUNTS, STATE_INITIAL_P, STATE_NEXT};
+
+/// Shared 256-state indirect mapping table (PAQ-style StateMap).
+#[derive(Clone, Debug)]
+pub struct StateMap {
+    probs: [u32; 256],
+    counts: [u16; 256],
+}
+
+impl Default for StateMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl StateMap {
+    pub fn new() -> Self {
+        Self {
+            probs: STATE_INITIAL_P,
+            counts: STATE_INITIAL_COUNTS,
+        }
+    }
+
+    #[inline(always)]
+    pub fn p1(&self, state: u8) -> u32 {
+        self.probs[state as usize]
+    }
+
+    #[inline(always)]
+    pub fn next_state(state: u8, bit: u8) -> u8 {
+        STATE_NEXT[state as usize][bit as usize & 1]
+    }
+
+    #[inline(always)]
+    pub fn age_state(state: u8) -> u8 {
+        STATE_AGE[state as usize]
+    }
+
+    #[inline(always)]
+    pub fn update(&mut self, state: u8, bit: u8) {
+        if state == 0 {
+            return;
+        }
+        let idx = state as usize;
+        let target = if bit == 1 { SCALE } else { 0 };
+        let cnt = self.counts[idx];
+        let shift = ((cnt >> 3) + 4).min(8);
+        let error = target as i32 - self.probs[idx] as i32;
+        let delta = error >> shift;
+        self.probs[idx] = ((self.probs[idx] as i32 + delta) as u32).clamp(1, SCALE - 1);
+        if cnt < 500 {
+            self.counts[idx] = cnt + 1;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

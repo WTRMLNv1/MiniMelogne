@@ -66,6 +66,13 @@ pub fn compress(input: &[u8], config: Option<ModelConfig>) -> io::Result<Vec<u8>
     let mut models = ModelPool::new(&model_cfg);
     let mut mixer = LogisticMixer::new(MODEL_COUNT, 256);
 
+    let track_curve = std::env::var("MINIMELOGNE_CURVE").is_ok();
+    if track_curve {
+        println!("--- Learning Curve (per 100 KB block) ---");
+    }
+    let mut last_payload_len = 0;
+    let mut last_in_pos = 0;
+
     let mut encoded_payload = Vec::new();
     {
         let mut enc = ArithmeticEncoder::new(&mut encoded_payload);
@@ -101,6 +108,24 @@ pub fn compress(input: &[u8], config: Option<ModelConfig>) -> io::Result<Vec<u8>
 
             models.advance_byte(byte);
             context_window.push(byte);
+
+            if track_curve && (context_window.len() % 102400 == 0 || context_window.len() == stage_data.len()) {
+                let cur_payload = enc.bytes_written() as usize;
+                let delta_comp = cur_payload - last_payload_len;
+                let delta_in = context_window.len() - last_in_pos;
+                let bpc = (delta_comp as f64 * 8.0) / delta_in as f64;
+                println!(
+                    "Block {:2} ({:3}-{:3} KB): {:6} bytes -> {:5} bytes ({:.3} bpc)",
+                    last_in_pos / 102400,
+                    last_in_pos / 1024,
+                    context_window.len() / 1024,
+                    delta_in,
+                    delta_comp,
+                    bpc
+                );
+                last_payload_len = cur_payload;
+                last_in_pos = context_window.len();
+            }
         }
 
         enc.finish()?;

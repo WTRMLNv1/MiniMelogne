@@ -34,6 +34,10 @@ impl<W: Write> ArithmeticEncoder<W> {
         }
     }
 
+    pub fn bytes_written(&self) -> u64 {
+        self.writer.bytes_written()
+    }
+
     /// Encodes a single bit `bit` given `p1 = P(bit == 1)`, where `1 <= p1 < 4096`.
     pub fn encode_bit(&mut self, bit: u8, p1: u32) -> io::Result<()> {
         let p1 = p1.clamp(1, SCALE - 1);
