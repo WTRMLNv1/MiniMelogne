@@ -57,7 +57,8 @@ impl LogisticMixer {
         self.last_mixed_p = p_mixed;
 
         // Pass through Secondary Symbol Estimation (APM) stage for calibration
-        self.apm.evaluate(ctx, p_mixed)
+        let p_apm = self.apm.evaluate(ctx, p_mixed);
+        (p_apm * 3 + p_mixed + 2) / 4
     }
 
     /// Updates weights via stochastic gradient descent and updates APM.
