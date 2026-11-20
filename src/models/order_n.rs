@@ -1,6 +1,6 @@
 //! Order-N context models mapping past byte history + current bit position to probabilities.
 
-use super::state::{BitCounter, StateMap};
+use super::state::BitCounter;
 use crate::math::hash_combine;
 
 /// Slot in an Order-N direct-mapped hash table.
@@ -10,21 +10,13 @@ struct HashSlot {
     counter: BitCounter,
 }
 
-#[derive(Clone, Copy, Default)]
-struct StateSlot {
-    tag: u16,
-    state: u8,
-}
-
 /// An Order-N byte context model.
 ///
 /// Hashes the preceding `order` bytes along with the current partial-byte bit history
-/// to index a direct-mapped table of adaptive bit counters or bit-history states.
+/// to index a direct-mapped table of adaptive bit counters.
 pub struct OrderNModel {
     order: usize,
     table: Vec<HashSlot>,
-    state_table: Vec<StateSlot>,
-    state_map: Option<StateMap>,
     mask: usize,
 }
 
@@ -35,20 +27,6 @@ impl OrderNModel {
         Self {
             order,
             table: vec![HashSlot::default(); size],
-            state_table: Vec::new(),
-            state_map: None,
-            mask: size - 1,
-        }
-    }
-
-    /// Creates a new Order-N model with bit-history StateMap.
-    pub fn new_state_map(order: usize, log2_size: usize) -> Self {
-        let size = 1usize << log2_size;
-        Self {
-            order,
-            table: Vec::new(),
-            state_table: vec![StateSlot::default(); size],
-            state_map: Some(StateMap::new()),
             mask: size - 1,
         }
     }
@@ -80,20 +58,11 @@ impl OrderNModel {
             return 2048; // Not enough context bytes yet
         }
         let (idx, tag) = self.get_hash_and_tag(context, bit_history);
-        if let Some(ref sm) = self.state_map {
-            let slot = &self.state_table[idx];
-            if slot.tag == tag {
-                sm.p1(slot.state)
-            } else {
-                2048
-            }
+        let slot = &self.table[idx];
+        if slot.tag == tag {
+            slot.counter.p1()
         } else {
-            let slot = &self.table[idx];
-            if slot.tag == tag {
-                slot.counter.p1()
-            } else {
-                2048 // Collision or uninitialized slot: neutral prior
-            }
+            2048 // Collision or uninitialized slot: neutral prior
         }
     }
 
@@ -104,31 +73,19 @@ impl OrderNModel {
             return;
         }
         let (idx, tag) = self.get_hash_and_tag(context, bit_history);
-        if let Some(ref mut sm) = self.state_map {
-            let slot = &mut self.state_table[idx];
-            if slot.tag == tag {
-                sm.update(slot.state, bit);
-                slot.state = StateMap::next_state(slot.state, bit);
-            } else if slot.state <= 2 {
-                slot.tag = tag;
-                slot.state = StateMap::next_state(0, bit);
-            } else {
-                slot.state = StateMap::age_state(slot.state);
-            }
+        let slot = &mut self.table[idx];
+
+        if slot.tag == tag {
+            slot.counter.update(bit);
+        } else if (slot.counter.c0 + slot.counter.c1) <= 2 {
+            // Replace weak slot with new tag
+            slot.tag = tag;
+            slot.counter = BitCounter::new();
+            slot.counter.update(bit);
         } else {
-            let slot = &mut self.table[idx];
-            if slot.tag == tag {
-                slot.counter.update(bit);
-            } else if (slot.counter.c0 + slot.counter.c1) <= 2 {
-                // Replace weak slot with new tag
-                slot.tag = tag;
-                slot.counter = BitCounter::new();
-                slot.counter.update(bit);
-            } else {
-                // Aging existing entry on collision
-                slot.counter.c0 >>= 1;
-                slot.counter.c1 >>= 1;
-            }
+            // Aging existing entry on collision
+            slot.counter.c0 >>= 1;
+            slot.counter.c1 >>= 1;
         }
     }
 

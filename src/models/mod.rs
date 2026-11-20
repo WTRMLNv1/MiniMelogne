@@ -4,7 +4,6 @@ pub mod match_model;
 pub mod order_n;
 pub mod sparse;
 pub mod state;
-pub mod state_table;
 
 use match_model::MatchModel;
 use order_n::{Order0Model, OrderNModel};
@@ -61,7 +60,7 @@ impl ModelPool {
         Self {
             order0: Order0Model::new(),
             order1: OrderNModel::new(1, config.log2_order1_size),
-            order2: OrderNModel::new_state_map(2, config.log2_order2_size),
+            order2: OrderNModel::new(2, config.log2_order2_size),
             order3: OrderNModel::new(3, config.log2_order3_size),
             order4: OrderNModel::new(4, config.log2_order4_size),
             order6: OrderNModel::new(6, config.log2_order6_size),
