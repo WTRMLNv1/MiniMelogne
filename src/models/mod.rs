@@ -37,8 +37,8 @@ impl Default for ModelConfig {
             log2_order6_size: 18, // 256K entries
             log2_sparse_size: 16, // 64K entries
             sparse_stride: 4,     // Default stride 4 (32-bit words / tables)
-            log2_match_buf: 16,   // 64KB match window
-            log2_match_idx: 15,   // 32K match hash table
+            log2_match_buf: 20,   // 1MB match window
+            log2_match_idx: 19,   // 512K match hash table
         }
     }
 }
