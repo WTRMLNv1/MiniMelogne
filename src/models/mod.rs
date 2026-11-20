@@ -1,16 +1,18 @@
 //! Online context models (order-0..n, sparse, and match models).
 
 pub mod match_model;
+pub mod nest_model;
 pub mod order_n;
 pub mod sparse;
 pub mod state;
 
 use match_model::MatchModel;
+use nest_model::NestModel;
 use order_n::{Order0Model, OrderNModel};
 use sparse::SparseModel;
 
 /// Number of active models in the default pool.
-pub const MODEL_COUNT: usize = 8;
+pub const MODEL_COUNT: usize = 9;
 
 /// Configuration options for the context model pool.
 #[derive(Clone, Debug)]
@@ -53,6 +55,7 @@ pub struct ModelPool {
     pub order6: OrderNModel,
     pub sparse: SparseModel,
     pub match_model: MatchModel,
+    pub nest: NestModel,
 }
 
 impl ModelPool {
@@ -66,6 +69,7 @@ impl ModelPool {
             order6: OrderNModel::new(6, config.log2_order6_size),
             sparse: SparseModel::new(config.sparse_stride, config.log2_sparse_size),
             match_model: MatchModel::new(config.log2_match_buf, config.log2_match_idx),
+            nest: NestModel::new(16),
         }
     }
 
@@ -79,6 +83,7 @@ impl ModelPool {
         predictions[5] = self.order6.predict(context, bit_history);
         predictions[6] = self.sparse.predict(context, bit_history);
         predictions[7] = self.match_model.predict(bit_history);
+        predictions[8] = self.nest.predict(context, bit_history);
     }
 
     /// Updates all models with the observed bit.
@@ -91,10 +96,12 @@ impl ModelPool {
         self.order6.update(context, bit_history, bit);
         self.sparse.update(context, bit_history, bit);
         self.match_model.update_bit(bit, bit_history);
+        self.nest.update(context, bit_history, bit);
     }
 
     /// Called at byte boundary when a full byte has been processed.
     pub fn advance_byte(&mut self, byte: u8) {
         self.match_model.advance_byte(byte);
+        self.nest.advance_byte(byte);
     }
 }
